@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Power BI TV Slideshow</title>
+  <style>
+    html, body, iframe {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border: 0;
+      background: white;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="report" allowfullscreen></iframe>
+
+  <script>
+    // Replace these with your two complete public
+    // Power BI page-specific URLs.
+    const pages = [
+      "https://app.powerbi.com/view?r=eyJrIjoiOGZmYzU0N2MtMzAwYS00ZTNiLTliNjgtNWIwOTg0ZWI4YWIzIiwidCI6IjM2YWNjMjZmLTkzNDktNGM1Ni04OWQwLWM3Yzg2Y2RkZjE1YSJ9",
+      "https://app.powerbi.com/view?r=eyJrIjoiOGZmYzU0N2MtMzAwYS00ZTNiLTliNjgtNWIwOTg0ZWI4YWIzIiwidCI6IjM2YWNjMjZmLTkzNDktNGM1Ni04OWQwLWM3Yzg2Y2RkZjE1YSJ9"
+    ];
+
+    let current = 0;
+    const report = document.getElementById("report");
+
+    function showPage(index) {
+      current = index;
+      report.src = pages[current];
+    }
+
+    showPage(0);
+
+    // Rotate every 15 seconds.
+    setInterval(() => {
+      showPage((current + 1) % pages.length);
+    }, 15000);
+
+    // Reload the current report every hour.
+    setInterval(() => {
+      const page = pages[current];
+      report.src = page;
+    }, 60 * 60 * 1000);
+  </script>
+</body>
+</html>
