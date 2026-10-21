@@ -1,52 +1,635 @@
+# Power BI TV Slideshow — Configurable Frontend
 
+Replace your existing `index.html` with the code below. The application starts with a configuration screen, saves settings in the current browser, and lets you enter your dashboard URLs without changing the source code.
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Power BI TV Slideshow</title>
-  <style>
-    html, body, iframe {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      border: 0;
-      background: white;
-      overflow: hidden;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Power BI TV Dashboard Player</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    font-family: Arial, sans-serif;
+    background: #f3f6fa;
+    color: #172033;
+  }
+
+  button, input, select {
+    font: inherit;
+  }
+
+  button {
+    border: 0;
+    border-radius: 7px;
+    padding: 10px 14px;
+    cursor: pointer;
+    background: #1769aa;
+    color: white;
+  }
+
+  button.secondary {
+    background: #e8edf4;
+    color: #172033;
+  }
+
+  button.danger {
+    background: #b42318;
+  }
+
+  input, select {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: 10px;
+    background: white;
+    color: #172033;
+  }
+
+  label {
+    display: block;
+    margin: 14px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .panel {
+    width: min(900px, 94%);
+    margin: 24px auto;
+    padding: 24px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px #0000000c;
+  }
+
+  h1 { font-size: 24px; margin-top: 0; }
+  h2 { font-size: 17px; margin-top: 26px; }
+
+  .hint {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .dashboard {
+    border: 1px solid #dbe3ed;
+    border-radius: 9px;
+    padding: 14px;
+    margin: 12px 0;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 20px;
+  }
+
+  #player {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: white;
+    overflow: hidden;
+  }
+
+  #reportViewport {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: white;
+  }
+
+  #report {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: white;
+    transform-origin: top left;
+  }
+
+  #playerToolbar {
+    position: absolute;
+    z-index: 10;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 9px;
+    background: #ffffffed;
+    border-radius: 9px;
+    box-shadow: 0 2px 12px #0003;
+  }
+
+  #playerToolbar button {
+    padding: 9px 12px;
+  }
+
+  #status {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 10;
+    background: #ffffffdd;
+    border-radius: 5px;
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  #player.hideControls #playerToolbar,
+  #player.hideControls #status {
+    display: none;
+  }
+
+  #playerToolbar button,
+  #status {
+    transition: opacity .2s;
+  }
+
+  .checkrow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+
+  .checkrow input {
+    width: auto;
+  }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+    .panel { padding: 16px; }
+  }
+</style>
 </head>
+
 <body>
-  <iframe id="report" allowfullscreen></iframe>
 
-  <script>
-    // Replace these with your two complete public
-    // Power BI page-specific URLs.
-    const pages = [
-      "https://app.powerbi.com/view?r=eyJrIjoiOGZmYzU0N2MtMzAwYS00ZTNiLTliNjgtNWIwOTg0ZWI4YWIzIiwidCI6IjM2YWNjMjZmLTkzNDktNGM1Ni04OWQwLWM3Yzg2Y2RkZjE1YSJ9",
-      "https://app.powerbi.com/view?r=eyJrIjoiOGZmYzU0N2MtMzAwYS00ZTNiLTliNjgtNWIwOTg0ZWI4YWIzIiwidCI6IjM2YWNjMjZmLTkzNDktNGM1Ni04OWQwLWM3Yzg2Y2RkZjE1YSJ9"
-    ];
+<section id="settings" class="panel">
+  <h1>Power BI TV Dashboard Player</h1>
+  <p class="hint">
+    Configure your reports, rotation timing and display preferences.
+    Settings are saved in this browser only.
+  </p>
 
-    let current = 0;
-    const report = document.getElementById("report");
+  <h2>1. Dashboards</h2>
+  <div id="dashboardList"></div>
 
-    function showPage(index) {
-      current = index;
-      report.src = pages[current];
+  <div class="actions">
+    <button id="addDashboard" type="button">+ Add dashboard</button>
+  </div>
+
+  <h2>2. Rotation settings</h2>
+  <div class="grid">
+    <div>
+      <label for="interval">Time per dashboard (seconds)</label>
+      <input id="interval" type="number" min="5" max="3600" value="15">
+    </div>
+
+    <div>
+      <label for="reload">Reload current dashboard every (minutes)</label>
+      <input id="reload" type="number" min="0" max="1440" value="60">
+      <p class="hint">Use 0 to disable automatic reload.</p>
+    </div>
+  </div>
+
+  <label for="displayMode">Display scaling</label>
+  <select id="displayMode">
+    <option value="1">100% — normal size</option>
+    <option value="0.9">90% — slightly smaller</option>
+    <option value="0.8">80% — smaller</option>
+    <option value="0.7">70% — compact</option>
+    <option value="1.1">110% — larger</option>
+    <option value="1.2">120% — zoom in</option>
+  </select>
+  <p class="hint">
+    Scaling adjusts the embedded frame, not Power BI's internal view mode.
+    If content gets cropped, return to 100% and use Power BI's Fit to page setting.
+  </p>
+
+  <label for="fitMode">Frame layout</label>
+  <select id="fitMode">
+    <option value="screen">Fill screen</option>
+    <option value="inset">Leave a small margin</option>
+  </select>
+
+  <label class="checkrow">
+    <input id="autoRotate" type="checkbox" checked>
+    Automatically rotate dashboards
+  </label>
+
+  <label class="checkrow">
+    <input id="startFullscreen" type="checkbox" checked>
+    Request fullscreen when starting the player
+  </label>
+
+  <label class="checkrow">
+    <input id="showToolbar" type="checkbox" checked>
+    Show player controls
+  </label>
+
+  <label class="checkrow">
+    <input id="rememberSettings" type="checkbox" checked>
+    Save settings in this browser
+  </label>
+
+  <div class="actions">
+    <button id="start" type="button">Save &amp; Start slideshow</button>
+    <button id="save" type="button" class="secondary">Save settings</button>
+    <button id="reset" type="button" class="secondary">Reset settings</button>
+  </div>
+
+  <p class="hint">
+    Secure Power BI reports require an authorized account. This app does not
+    save Microsoft passwords or authentication tokens. Browser session
+    retention depends on the browser and Microsoft authentication.
+  </p>
+  <p id="message" role="status" class="hint"></p>
+</section>
+
+<section id="player">
+  <div id="reportViewport">
+    <iframe
+      id="report"
+      title="Power BI dashboard"
+      allowfullscreen
+      referrerpolicy="strict-origin-when-cross-origin">
+    </iframe>
+  </div>
+
+  <div id="playerToolbar">
+    <button id="previous" type="button" title="Previous dashboard">◀</button>
+    <button id="pause" type="button">Pause</button>
+    <button id="next" type="button" title="Next dashboard">▶</button>
+    <button id="fullscreen" type="button">Fullscreen</button>
+    <button id="toggleControls" type="button">Hide controls</button>
+    <button id="openSettings" type="button">Settings</button>
+  </div>
+
+  <div id="status" aria-live="polite">Ready</div>
+</section>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "powerbi-tv-player-settings-v1";
+
+  const $ = id => document.getElementById(id);
+
+  const defaults = {
+    dashboards: [
+      { name: "Dashboard 1", url: "" },
+      { name: "Dashboard 2", url: "" }
+    ],
+    interval: 15,
+    reload: 60,
+    displayMode: "1",
+    fitMode: "screen",
+    autoRotate: true,
+    startFullscreen: true,
+    showToolbar: true,
+    rememberSettings: true
+  };
+
+  let config = structuredClone(defaults);
+  let current = 0;
+  let rotationTimer = null;
+  let reloadTimer = null;
+  let paused = false;
+  let validDashboards = [];
+
+  function cleanUrl(value) {
+    const raw = value.trim();
+
+    if (!raw) return "";
+
+    try {
+      const url = new URL(raw);
+
+      if (url.protocol !== "https:") return "";
+      if (url.hostname !== "app.powerbi.com") return "";
+
+      // Accept the standard secure report embed URL.
+      if (url.pathname !== "/reportEmbed") return "";
+
+      if (!url.searchParams.get("reportId")) return "";
+
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
+
+  function renderDashboardList() {
+    const list = $("dashboardList");
+    list.replaceChildren();
+
+    config.dashboards.forEach((dashboard, index) => {
+      const card = document.createElement("div");
+      card.className = "dashboard";
+
+      const nameLabel = document.createElement("label");
+      nameLabel.textContent = "Dashboard name";
+      const nameInput = document.createElement("input");
+      nameInput.value = dashboard.name;
+      nameInput.placeholder = "e.g. Sales Dashboard";
+      nameInput.addEventListener("input", () => {
+        config.dashboards[index].name = nameInput.value;
+      });
+
+      const urlLabel = document.createElement("label");
+      urlLabel.textContent = "Secure Power BI embed URL";
+      const urlInput = document.createElement("input");
+      urlInput.type = "url";
+      urlInput.value = dashboard.url;
+      urlInput.placeholder = "Paste https://app.powerbi.com/reportEmbed?...";
+      urlInput.autocomplete = "off";
+      urlInput.spellcheck = false;
+      urlInput.addEventListener("input", () => {
+        config.dashboards[index].url = urlInput.value.trim();
+      });
+
+      const hint = document.createElement("p");
+      hint.className = "hint";
+      hint.textContent =
+        "Use a secure reportEmbed URL. Publish-to-web links are not accepted.";
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "danger";
+      remove.textContent = "Remove dashboard";
+      remove.addEventListener("click", () => {
+        config.dashboards.splice(index, 1);
+        renderDashboardList();
+      });
+
+      card.append(nameLabel, nameInput, urlLabel, urlInput, hint, remove);
+      list.appendChild(card);
+    });
+  }
+
+  function readControls() {
+    config.interval = Math.max(
+      5, Math.min(3600, Number($("interval").value) || 15)
+    );
+    config.reload = Math.max(
+      0, Math.min(1440, Number($("reload").value) || 0)
+    );
+    config.displayMode = $("displayMode").value;
+    config.fitMode = $("fitMode").value;
+    config.autoRotate = $("autoRotate").checked;
+    config.startFullscreen = $("startFullscreen").checked;
+    config.showToolbar = $("showToolbar").checked;
+    config.rememberSettings = $("rememberSettings").checked;
+  }
+
+  function fillControls() {
+    $("interval").value = config.interval;
+    $("reload").value = config.reload;
+    $("displayMode").value = config.displayMode;
+    $("fitMode").value = config.fitMode;
+    $("autoRotate").checked = config.autoRotate;
+    $("startFullscreen").checked = config.startFullscreen;
+    $("showToolbar").checked = config.showToolbar;
+    $("rememberSettings").checked = config.rememberSettings;
+    renderDashboardList();
+  }
+
+  function saveSettings() {
+    readControls();
+
+    if (config.rememberSettings) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        $("message").textContent =
+          "Settings saved in this browser.";
+      } catch {
+        $("message").textContent =
+          "Browser storage is unavailable. Settings may not persist.";
+      }
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+      $("message").textContent =
+        "Browser storage is disabled for these settings.";
+    }
+  }
+
+  function stopTimers() {
+    clearInterval(rotationTimer);
+    clearInterval(reloadTimer);
+    rotationTimer = null;
+    reloadTimer = null;
+  }
+
+  function applyFrameLayout() {
+    const viewport = $("reportViewport");
+    const frame = $("report");
+    const scale = Number(config.displayMode) || 1;
+
+    if (config.fitMode === "inset") {
+      viewport.style.inset = "12px";
+    } else {
+      viewport.style.inset = "0";
     }
 
-    showPage(0);
+    frame.style.width = (100 / scale) + "%";
+    frame.style.height = (100 / scale) + "%";
+    frame.style.transform = "scale(" + scale + ")";
+  }
 
-    // Rotate every 15 seconds.
-    setInterval(() => {
-      showPage((current + 1) % pages.length);
-    }, 15000);
+  function updateStatus() {
+    const item = validDashboards[current];
+    $("status").textContent =
+      (item ? item.name : "No dashboard") +
+      " (" + (validDashboards.length ? current + 1 : 0) +
+      "/" + validDashboards.length + ")" +
+      (paused ? " — Paused" : "");
+  }
 
-    // Reload the current report every hour.
-    setInterval(() => {
-      const page = pages[current];
-      report.src = page;
-    }, 60 * 60 * 1000);
-  </script>
+  function showDashboard(index) {
+    if (!validDashboards.length) return;
+
+    current = (index + validDashboards.length) % validDashboards.length;
+    $("report").src = validDashboards[current].url;
+    updateStatus();
+  }
+
+  function startTimers() {
+    stopTimers();
+
+    if (config.autoRotate && validDashboards.length > 1) {
+      rotationTimer = setInterval(() => {
+        if (!paused) showDashboard(current + 1);
+      }, config.interval * 1000);
+    }
+
+    if (config.reload > 0) {
+      reloadTimer = setInterval(() => {
+        if (!paused && validDashboards.length) {
+          $("report").src = validDashboards[current].url;
+        }
+      }, config.reload * 60 * 1000);
+    }
+  }
+
+  async function requestFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        await $("player").requestFullscreen();
+      }
+    } catch {
+      $("status").textContent =
+        "Fullscreen was blocked. Use the browser's fullscreen option.";
+    }
+  }
+
+  async function startPlayer() {
+    readControls();
+
+    validDashboards = config.dashboards
+      .map(item => ({
+        name: item.name.trim() || "Dashboard",
+        url: cleanUrl(item.url)
+      }))
+      .filter(item => item.url);
+
+    if (!validDashboards.length) {
+      $("message").textContent =
+        "Add at least one valid secure Power BI reportEmbed URL.";
+      return;
+    }
+
+    const invalidCount = config.dashboards.filter(
+      item => item.url.trim() && !cleanUrl(item.url)
+    ).length;
+
+    saveSettings();
+
+    $("settings").style.display = "none";
+    $("player").style.display = "block";
+    $("player").classList.toggle("hideControls", !config.showToolbar);
+
+    applyFrameLayout();
+    paused = false;
+    $("pause").textContent = "Pause";
+
+    showDashboard(0);
+    startTimers();
+
+    if (config.startFullscreen) {
+      await requestFullscreen();
+    }
+  }
+
+  $("addDashboard").addEventListener("click", () => {
+    config.dashboards.push({
+      name: "Dashboard " + (config.dashboards.length + 1),
+      url: ""
+    });
+    renderDashboardList();
+  });
+
+  $("save").addEventListener("click", saveSettings);
+  $("start").addEventListener("click", startPlayer);
+
+  $("reset").addEventListener("click", () => {
+    if (!confirm("Reset all slideshow settings?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    config = structuredClone(defaults);
+    fillControls();
+    $("message").textContent = "Settings reset.";
+  });
+
+  $("previous").addEventListener("click", () => {
+    showDashboard(current - 1);
+  });
+
+  $("next").addEventListener("click", () => {
+    showDashboard(current + 1);
+  });
+
+  $("pause").addEventListener("click", () => {
+    paused = !paused;
+    $("pause").textContent = paused ? "Resume" : "Pause";
+    updateStatus();
+  });
+
+  $("fullscreen").addEventListener("click", requestFullscreen);
+
+  $("toggleControls").addEventListener("click", () => {
+    const hidden = $("player").classList.toggle("hideControls");
+    $("toggleControls").textContent =
+      hidden ? "Show controls" : "Hide controls";
+  });
+
+  $("openSettings").addEventListener("click", () => {
+    stopTimers();
+    $("report").src = "about:blank";
+    $("player").style.display = "none";
+    $("settings").style.display = "block";
+    fillControls();
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement &&
+        $("player").style.display === "block") {
+      $("status").textContent =
+        "Fullscreen exited. Use the Fullscreen button to return.";
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" &&
+        $("player").style.display === "block" &&
+        document.fullscreenElement) {
+      // Let the browser exit fullscreen normally.
+      return;
+    }
+
+    if (event.key.toLowerCase() === "c" &&
+        $("player").style.display === "block") {
+      $("player").classList.toggle("hideControls");
+    }
+  });
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      config = {
+        ...structuredClone(defaults),
+        ...parsed,
+        dashboards: Array.isArray(parsed.dashboards)
+          ? parsed.dashboards
+          : structuredClone(defaults.dashboards)
+      };
+    }
+  } catch {
+    config = structuredClone(defaults);
+  }
+
+  fillControls();
+})();
+</script>
+
 </body>
 </html>
+```
